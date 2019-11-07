@@ -1,6 +1,5 @@
 import csv
 import os
-import sys
 
 import psycopg2
 from dotenv import load_dotenv
@@ -19,6 +18,23 @@ TIME_START = '2018-09-01'
 TIME_END = '2018-09-02'
 
 
+def main():
+    connection = setup_db_connection()
+
+    query = build_query()
+    data = import_data(connection, query)
+    export_data(data)
+
+    cleanup_db_connection(connection)
+
+
+def setup_db_connection():
+    connect = connect_to_db(HOST, DB_NAME, PORT, USER, PASSWORD)
+    cursor = connect.cursor()
+
+    return connect, cursor
+
+
 @logger.catch
 def connect_to_db(host, database, port, user, password):
     logger.debug("Connecting to database")
@@ -29,21 +45,34 @@ def connect_to_db(host, database, port, user, password):
     return connect
 
 
-@logger.catch
-def perform_query(cursor, time_start, time_end):
-    sql_query = f"SELECT * \
-                  FROM wifidata.association_counts \
-                  WHERE time >= '{time_start}' \
-                       AND time <= '{time_start}'"
+def build_query():
+    return f"SELECT * \
+             FROM wifidata.association_counts \
+             WHERE time >= '{TIME_START}' \
+                   AND time <= '{TIME_END}'"
 
+
+def import_data(connection, query):
+    _, cursor = connection
+    headers, results = perform_query(cursor, query)
+    return (headers, results)
+
+
+@logger.catch
+def perform_query(cursor, query):
     logger.debug("Fetching results")
-    cursor.execute(sql_query)
+    cursor.execute(query)
 
     headers = [i[0] for i in cursor.description]
     results = cursor.fetchall()
     logger.debug("Obtained results")
 
     return headers, results
+
+
+def export_data(data):
+    headers, results = data
+    write_to_csv(FILENAME, headers, results)
 
 
 @logger.catch
@@ -60,32 +89,9 @@ def write_to_csv(filename, headers, results):
     logger.debug("Writing successful")
 
 
-def setup_db_connection():
-    connect = connect_to_db(HOST, DB_NAME, PORT, USER, PASSWORD)
-    cursor = connect.cursor()
-
-    return connect, cursor
-
-def import_data(connection):
-    _, cursor = connection
-    headers, results = perform_query(cursor, TIME_START, TIME_END)
-    return (headers, results)
-
-def export_data(data):
-    headers, results = data
-    write_to_csv(FILENAME, headers, results)
-
 def cleanup_db_connection(connection):
     connect, _ = connection
     connect.close()
 
-
-def main():
-    connection = setup_db_connection()
-
-    data = import_data(connection)
-    export_data(data)
-
-    cleanup_db_connection(connection)
 
 main()
