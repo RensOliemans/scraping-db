@@ -66,23 +66,26 @@ def setup_db_connection():
 
     return connect, cursor
 
-def import_data(cursor):
+def import_data(connection):
+    _, cursor = connection
     headers, results = perform_query(cursor, TIME_START, TIME_END)
     return (headers, results)
 
-def export_data(filename, data):
+def export_data(data):
     headers, results = data
-    write_to_csv(filename, headers, results)
+    write_to_csv(FILENAME, headers, results)
 
-def cleanup_db_connection(connect):
+def cleanup_db_connection(connection):
+    connect, _ = connection
     connect.close()
 
 
 def main():
-    connect, cursor = setup_db_connection()
-    data = import_data(cursor)
-    export_data(FILENAME, data)
-    cleanup_db_connection(connect)
-    connect.close()
+    connection = setup_db_connection()
+
+    data = import_data(connection)
+    export_data(data)
+
+    cleanup_db_connection(connection)
 
 main()
